@@ -1,20 +1,37 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
+// Set axios to include credentials by default
+axios.defaults.withCredentials = true;
+
 const Products = () => {
     const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);  // Loading state for data fetching
+    const [error, setError] = useState(null);  // Error state for handling errors
     const API_URL = "http://127.0.0.1:8000/api/products/";
 
     useEffect(() => {
         axios.get(API_URL)
             .then(response => {
                 setProducts(response.data);
-                console.log(response.data);
+                console.log(response.data); // Check the fetched data
             })
             .catch(error => {
+                setError("Error fetching products. Please try again later.");
                 console.error("Error fetching products:", error);
+            })
+            .finally(() => {
+                setLoading(false);  // Stop loading when request is complete
             });
     }, []);
+
+    if (loading) {
+        return <div>Loading products...</div>;  // Display loading message
+    }
+
+    if (error) {
+        return <div style={{ color: 'red' }}>{error}</div>;  // Display error message
+    }
 
     return (
         <div className="container">
