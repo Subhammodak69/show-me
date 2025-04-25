@@ -1,7 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
-import axios from 'axios';
-axios.defaults.withCredentials = true;  // Ensures cookies are sent with requests
+import axiosInstance from '../axiosInstance'; // Adjust path as needed
 
 const SigninForm = () => {
   const [email, setEmail] = useState('');
@@ -11,23 +10,23 @@ const SigninForm = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();  // For programmatic navigation
+  const navigate = useNavigate();
 
-  // Send OTP to email for signin
+  // Send OTP
   const handleSignin = async () => {
     if (!email) {
       setError('Email is required');
       return;
     }
+
     setLoading(true);
     try {
-      const purpose = 'signin';
-      const response = await axios.post(
-        'http://127.0.0.1:8000/api/send-otp/', 
-        { email, purpose },
-        { withCredentials: true }  // Include cookies in the request
-      );
-      setOtpPhase(true);  // Show OTP input
+      const response = await axiosInstance.post('/send-otp/', {
+        email,
+        purpose: 'signin',
+      });
+
+      setOtpPhase(true);
       setSuccess(response.data.message || 'OTP sent to your email.');
       setError('');
     } catch (err) {
@@ -35,7 +34,7 @@ const SigninForm = () => {
       setError(message);
       setSuccess('');
     } finally {
-      setLoading(false);  // Stop loading indicator
+      setLoading(false);
     }
   };
 
@@ -45,36 +44,40 @@ const SigninForm = () => {
       setError('OTP is required');
       return;
     }
+  
     setLoading(true);
     try {
-      const response = await axios.post(
-        'http://127.0.0.1:8000/api/signin/',
-        { email, otp },
-        { withCredentials: true }  // Maintain session on backend
-      );
-      setSuccess(response.data.message || 'OTP verified. You are now logged in.');
-      setError('');
-
-      // Store JWT token in localStorage
-      const token = response.data.token; // Assuming token is returned
-      localStorage.setItem('authToken', token);  // Store the token
-
-      // Set token in axios headers for subsequent requests
-      axios.defaults.headers['Authorization'] = `Bearer ${token}`;
-
-      // Redirect after a brief delay
-      setTimeout(() => {
-        navigate('/');  // Redirect to the home page or any other page
-      }, 1000);
+      const response = await axiosInstance.post('/signin/', {
+        email,
+        otp,
+      });
+  
+      // Get the access token from the response
+      const accessToken = response.data.access_token;
+      const refreshToken = response.data.refresh_token;
+  
+      if (accessToken) {
+        // Store the tokens in local storage (or session storage as needed)
+        localStorage.setItem('access', accessToken);
+        localStorage.setItem('refresh', refreshToken);  // Optionally store the refresh token
+        setSuccess('OTP verified. You are now logged in.');
+        setError('');
+        setTimeout(() => {
+          navigate('/'); // Redirect to home or any other page
+        }, 1000);
+      } else {
+        setError('No token received');
+        setSuccess('');
+      }
     } catch (err) {
       const message = err.response?.data?.error || 'Invalid OTP';
       setError(message);
       setSuccess('');
     } finally {
-      setLoading(false);  // Stop loading indicator
+      setLoading(false);
     }
   };
-
+  
   return (
     <div style={{ maxWidth: '400px', margin: 'auto', padding: '1rem' }}>
       <h2>Sign In</h2>
@@ -106,7 +109,7 @@ const SigninForm = () => {
           </button>
         </>
       )}
-      
+
       {loading && <p>Loading...</p>}
       {error && <p style={{ color: 'red', marginTop: '0.5rem' }}>{error}</p>}
       {success && <p style={{ color: 'green', marginTop: '0.5rem' }}>{success}</p>}

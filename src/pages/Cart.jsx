@@ -1,46 +1,55 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../axiosInstance'; // use this instead of axios
 
 const Cart = () => {
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const navigate = useNavigate();
     const API_URL = "http://127.0.0.1:8000/api/carts/";
 
     useEffect(() => {
         const token = localStorage.getItem("access");
 
-        // Ensure that the token is used in the header
-        axios.defaults.withCredentials = true; // This ensures cookies (session) are sent
-
         if (!token) {
             setError("You must be logged in to view the cart.");
             setLoading(false);
+            navigate('/signin');
             return;
         }
 
-        axios.get(API_URL, {
+        axiosInstance.get(API_URL, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
         })
-        .then(response => {
+        .then((response) => {
             setCartItems(response.data);
         })
-        .catch(error => {
-            setError("Error fetching cart items. Please try again later.");
+        .catch((error) => {
+            if (error.response && error.response.status === 401) {
+                setError("Session expired. Please log in again.");
+                navigate('/signin');
+            } else {
+                setError("Error fetching cart items. Please try again later.");
+            }
             console.error("Error fetching cart items:", error);
         })
         .finally(() => {
             setLoading(false);
         });
-    }, []);
+    }, [navigate]);
 
     if (loading) return <div>Loading cart items...</div>;
 
     if (error) return <div style={{ color: "red" }}>{error}</div>;
 
     const totalPrice = cartItems.reduce((total, item) => total + item.total_price, 0);
+
+    const handleCheckout = () => {
+        navigate('/checkout');
+    };
 
     return (
         <div className="container">
@@ -52,15 +61,17 @@ const Cart = () => {
                     <ul className="list-group">
                         {cartItems.map(item => (
                             <li key={item.id} className="list-group-item">
-                                {item.product.name} - {item.quantity} pcs - ${item.total_price}
+                                {item.product.name} - {item.quantity} pcs - ${item.total_price.toFixed(2)}
                             </li>
                         ))}
                     </ul>
                     <div className="mt-3">
-                        <strong>Total Price: </strong>${totalPrice}
+                        <strong>Total Price: </strong>${totalPrice.toFixed(2)}
                     </div>
                     <div className="mt-3">
-                        <button className="btn btn-primary">Proceed to Checkout</button>
+                        <button className="btn btn-primary" onClick={handleCheckout}>
+                            Proceed to Checkout
+                        </button>
                     </div>
                 </div>
             )}
